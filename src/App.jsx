@@ -1,65 +1,293 @@
-import Header from "./components/Header";
-import Footer from "./components/Footer";
-import { useAppContext } from "./contexts/appContext";
-import NFTCard from "./components/NFTCard";
-import useMintToken from "./hooks/useMintToken";
+import { useState, useEffect } from 'react';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import { useAppContext } from './contexts/appContext';
+import NFTCard from './components/NFTCard';
+import useMintToken from './hooks/useMintToken';
+import useTransferToken from './hooks/useTransferToken';
+import { useAccount } from 'wagmi'; // Assuming you're using wagmi for wallet connection
+import { Toaster } from 'react-hot-toast'; // Import Toaster for toast notifications
 
 function App() {
-    const { nextTokenId, tokenMetaData, mintPrice } = useAppContext();
+  const { nextTokenId, tokenMetaData, mintPrice, ownedTokens, loading } = useAppContext();
+  const { address, isConnected } = useAccount(); // Properly get isConnected from useAccount
+  const [activeTab, setActiveTab] = useState('marketplace');
+  const tokenMetaDataArray = Array.from(tokenMetaData.values());
+  const mintTokenHook = useMintToken();
+  const transferTokenHook = useTransferToken();
 
-    console.log("nextTokenId: ", nextTokenId);
+  // Form state for transfer functionality
+  const [transferForm, setTransferForm] = useState({
+    tokenId: '',
+    toAddress: '',
+  });
 
-    const tokenMetaDataArray = Array.from(tokenMetaData.values());
-    const mintToken = useMintToken();
+  const handleTransferFormChange = (e) => {
+    setTransferForm({
+      ...transferForm,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-    return (
-        <div>
-            <Header />
-            <main className="h-full min-h-[calc(100vh-128px)] p-4">
-                <div className="text-center">
-                    <h1 className="text-3xl font-bold">NFT dApp</h1>
-                    <p className="text-primary font-medium">
-                        Mint and manage your NFTs
-                    </p>
-                </div>
+  const handleTransfer = async (e) => {
+    e.preventDefault();
+    if (!transferForm.tokenId || !transferForm.toAddress) return;
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  mt-6">
-                    <div className="border-l-2 border-primary p-4">
-                        <h1 className="text-xl font-bold">Mint NFT</h1>
-                        <p className="text-gray-500">
-                            Mint your NFT and make it available for sale
-                        </p>
-                    </div>
-                    <div className="border-l-2 border-primary p-4">
-                        <h1 className="text-xl font-bold">Manage NFTs</h1>
-                        <p className="text-gray-500">
-                            View and manage your minted NFTs
-                        </p>
-                    </div>
-                    <div className="border-l-2 border-primary p-4">
-                        <h1 className="text-xl font-bold">Marketplace</h1>
-                        <p className="text-gray-500">
-                            Buy and sell NFTs on the marketplace
-                        </p>
-                    </div>
-                </div>
+    try {
+      const success = await transferTokenHook.transferToken(
+        transferForm.tokenId,
+        transferForm.toAddress,
+      );
+      if (success) {
+        // Reset form after successful transfer
+        setTransferForm({
+          tokenId: '',
+          toAddress: '',
+        });
+      }
+    } catch (error) {
+      console.error('Transfer failed:', error);
+    }
+  };
 
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-                    {tokenMetaDataArray.map((token, i) => (
-                        <NFTCard
-                            key={token.name.split(" ").join("")}
-                            metadata={token}
-                            mintPrice={mintPrice}
-                            tokenId={i}
-                            nextTokenId={nextTokenId}
-                            mintNFT={mintToken}
-                        />
-                    ))}
-                </div>
-            </main>
-            <Footer />
+  return (
+    <div className='flex flex-col min-h-screen bg-gray-50'>
+      <Toaster position='top-right' />
+      <Header />
+      <main className='flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full'>
+        <div className='text-center mb-8'>
+          <h1 className='text-4xl font-bold text-gray-800 mb-2'>NFT Marketplace</h1>
+          <p className='text-primary font-medium text-lg'>
+            Mint, manage, and trade your digital collectibles
+          </p>
         </div>
-    );
+
+        {/* Feature cards */}
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-10'>
+          <div className='border-l-4 border-primary p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+            <h2 className='text-xl font-bold text-gray-800 mb-2'>Mint NFT</h2>
+            <p className='text-gray-600'>
+              Create unique digital assets and add them to your collection
+            </p>
+          </div>
+          <div className='border-l-4 border-primary p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+            <h2 className='text-xl font-bold text-gray-800 mb-2'>Manage NFTs</h2>
+            <p className='text-gray-600'>View and transfer your owned digital collectibles</p>
+          </div>
+          <div className='border-l-4 border-primary p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+            <h2 className='text-xl font-bold text-gray-800 mb-2'>Marketplace</h2>
+            <p className='text-gray-600'>Explore and purchase NFTs from other creators</p>
+          </div>
+        </div>
+
+        {/* Tab navigation */}
+        <div className='flex border-b border-gray-200 mb-6'>
+          <button
+            className={`py-3 px-6 font-medium text-sm transition-colors 
+              ${
+                activeTab === 'marketplace'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            onClick={() => setActiveTab('marketplace')}
+          >
+            Marketplace
+          </button>
+          <button
+            className={`py-3 px-6 font-medium text-sm transition-colors 
+              ${
+                activeTab === 'owned'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            onClick={() => setActiveTab('owned')}
+          >
+            My NFTs
+          </button>
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'marketplace' ? (
+          <div>
+            {loading ? (
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
+                {[...Array(4)].map((_, index) => (
+                  <div
+                    key={`skeleton-${index}`}
+                    className='animate-pulse rounded-xl overflow-hidden bg-white shadow-md'
+                  >
+                    <div className='bg-gray-200 h-64 w-full'></div>
+                    <div className='p-4 space-y-3'>
+                      <div className='h-4 bg-gray-200 rounded w-3/4'></div>
+                      <div className='h-3 bg-gray-200 rounded w-full'></div>
+                      <div className='h-3 bg-gray-200 rounded w-full'></div>
+                      <div className='h-3 bg-gray-200 rounded w-2/3'></div>
+                      <div className='mt-4 h-10 bg-gray-200 rounded w-full'></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
+                {tokenMetaDataArray.map((token, i) => (
+                  <NFTCard
+                    key={`marketplace-${i}`}
+                    metadata={token}
+                    mintPrice={mintPrice}
+                    tokenId={i}
+                    nextTokenId={nextTokenId}
+                    mintNFT={mintTokenHook}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            {/* Transfer NFT Form */}
+            {ownedTokens.length > 0 && (
+              <div className='bg-white p-6 rounded-lg shadow-sm mb-6'>
+                <h3 className='text-lg font-bold mb-4'>Transfer NFT</h3>
+                <form onSubmit={handleTransfer} className='space-y-4'>
+                  <div>
+                    <label
+                      htmlFor='tokenId'
+                      className='block text-sm font-medium text-gray-700 mb-1'
+                    >
+                      Token ID
+                    </label>
+                    <select
+                      id='tokenId'
+                      name='tokenId'
+                      className='w-full p-2 border border-gray-300 rounded-md'
+                      value={transferForm.tokenId}
+                      onChange={handleTransferFormChange}
+                      required
+                    >
+                      <option value=''>Select Token ID</option>
+                      {ownedTokens.map((id) => {
+                        const token = tokenMetaData.get(Number(id));
+                        const tokenName = token ? token.name : `Token #${id}`;
+                        return (
+                          <option key={id} value={id}>
+                            {id} - {tokenName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor='toAddress'
+                      className='block text-sm font-medium text-gray-700 mb-1'
+                    >
+                      Recipient Address
+                    </label>
+                    <input
+                      type='text'
+                      id='toAddress'
+                      name='toAddress'
+                      className='w-full p-2 border border-gray-300 rounded-md'
+                      placeholder='0x...'
+                      value={transferForm.toAddress}
+                      onChange={handleTransferFormChange}
+                      required
+                    />
+                  </div>
+                  <button
+                    type='submit'
+                    className='w-full p-3 bg-primary text-white font-medium rounded-md hover:bg-primary/90 transition-colors flex justify-center items-center'
+                    disabled={transferTokenHook.isTransferring}
+                  >
+                    {transferTokenHook.isTransferring ? (
+                      <>
+                        <svg
+                          className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
+                          xmlns='http://www.w3.org/2000/svg'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                        >
+                          <circle
+                            className='opacity-25'
+                            cx='12'
+                            cy='12'
+                            r='10'
+                            stroke='currentColor'
+                            strokeWidth='4'
+                          ></circle>
+                          <path
+                            className='opacity-75'
+                            fill='currentColor'
+                            d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                          ></path>
+                        </svg>
+                        Transferring...
+                      </>
+                    ) : (
+                      'Transfer NFT'
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Owned NFTs display */}
+            <h3 className='text-lg font-bold mb-4'>Your NFTs</h3>
+            {!address || !isConnected ? (
+              <div className='text-center py-10 bg-white rounded-lg'>
+                <p className='text-gray-500'>Please connect your wallet to view your NFTs.</p>
+              </div>
+            ) : loading ? (
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
+                {[...Array(2)].map((_, index) => (
+                  <div
+                    key={`owned-skeleton-${index}`}
+                    className='animate-pulse rounded-xl overflow-hidden bg-white shadow-md'
+                  >
+                    <div className='bg-gray-200 h-64 w-full'></div>
+                    <div className='p-4 space-y-3'>
+                      <div className='h-4 bg-gray-200 rounded w-3/4'></div>
+                      <div className='h-3 bg-gray-200 rounded w-full'></div>
+                      <div className='h-3 bg-gray-200 rounded w-full'></div>
+                      <div className='h-3 bg-gray-200 rounded w-2/3'></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : ownedTokens.length === 0 ? (
+              <div className='text-center py-10 bg-white rounded-lg'>
+                <p className='text-gray-500'>You don't own any NFTs yet.</p>
+              </div>
+            ) : (
+              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
+                {ownedTokens.map((id) => {
+                  const token = tokenMetaData.get(Number(id));
+                  return token ? (
+                    <NFTCard
+                      key={`owned-${id}`}
+                      metadata={token}
+                      mintPrice={mintPrice}
+                      tokenId={Number(id)}
+                      nextTokenId={nextTokenId}
+                      owned={true}
+                    />
+                  ) : (
+                    <div
+                      key={`loading-${id}`}
+                      className='w-full h-64 bg-gray-100 rounded-xl animate-pulse flex items-center justify-center'
+                    >
+                      <p className='text-gray-400'>Loading Token #{id}...</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+      <Footer />
+    </div>
+  );
 }
 
 export default App;
