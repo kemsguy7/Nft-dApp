@@ -2,7 +2,7 @@ import { Contract } from 'ethers';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { getReadOnlyProvider, getSigner } from '../utils';
 import NFT_ABI from '../ABI/nft.json';
-import { useAccount } from 'wagmi'; // Assuming you're using wagmi for wallet connection
+import { useAccount } from 'wagmi';
 
 const appContext = createContext();
 
@@ -114,7 +114,6 @@ export const AppProvider = ({ children }) => {
           getReadOnlyProvider(),
         );
 
-        // Since the contract doesn't implement ERC721Enumerable, we need to check ownership
         // for each token individually (up to maxSupply)
         const checkOwnership = [];
         const maxTokensToCheck = Number(maxSupply);
