@@ -1,6 +1,7 @@
 import { Contract } from 'ethers';
 import { useCallback, useState } from 'react';
-import { toast } from 'react-hot-toast'; // Assuming you're using react-hot-toast for notifications
+import { toast } from 'react-hot-toast';
+
 import { getSigner } from '../utils';
 import NFT_ABI from '../ABI/nft.json';
 import { useAppContext } from '../contexts/appContext';

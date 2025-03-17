@@ -5,7 +5,7 @@ import { useAppContext } from './contexts/appContext';
 import NFTCard from './components/NFTCard';
 import useMintToken from './hooks/useMintToken';
 import useTransferToken from './hooks/useTransferToken';
-import { useAccount } from 'wagmi'; // Assuming you're using wagmi for wallet connection
+import { useAccount } from 'wagmi';
 import { Toaster } from 'react-hot-toast'; // Import Toaster for toast notifications
 
 function App() {
