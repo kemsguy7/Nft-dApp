@@ -16,6 +16,33 @@ function App() {
   const mintTokenHook = useMintToken();
   const transferTokenHook = useTransferToken();
 
+  // Pagination state
+  const ITEMS_PER_PAGE = 12;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ownedCurrentPage, setOwnedCurrentPage] = useState(1);
+
+  // Calculate total pages for marketplace and owned NFTs
+  const totalMarketplacePages = Math.ceil(tokenMetaDataArray.length / ITEMS_PER_PAGE);
+  const totalOwnedPages = Math.ceil(ownedTokens.length / ITEMS_PER_PAGE);
+
+  // Get current items for display based on pagination
+  const indexOfLastMarketplaceItem = currentPage * ITEMS_PER_PAGE;
+  const indexOfFirstMarketplaceItem = indexOfLastMarketplaceItem - ITEMS_PER_PAGE;
+  const currentMarketplaceItems = tokenMetaDataArray.slice(
+    indexOfFirstMarketplaceItem,
+    indexOfLastMarketplaceItem,
+  );
+
+  const indexOfLastOwnedItem = ownedCurrentPage * ITEMS_PER_PAGE;
+  const indexOfFirstOwnedItem = indexOfLastOwnedItem - ITEMS_PER_PAGE;
+  const currentOwnedTokens = ownedTokens.slice(indexOfFirstOwnedItem, indexOfLastOwnedItem);
+
+  // Reset pagination when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setOwnedCurrentPage(1);
+  }, [activeTab]);
+
   // Form state for transfer functionality
   const [transferForm, setTransferForm] = useState({
     tokenId: '',
@@ -48,6 +75,85 @@ function App() {
     } catch (error) {
       console.error('Transfer failed:', error);
     }
+  };
+
+  // Pagination controls
+  const paginate = (pageNumber, isOwnedTab = false) => {
+    if (isOwnedTab) {
+      setOwnedCurrentPage(pageNumber);
+    } else {
+      setCurrentPage(pageNumber);
+    }
+    // Scroll to top of grid when page changes
+    window.scrollTo({
+      top: document.getElementById('nft-grid').offsetTop - 100,
+      behavior: 'smooth',
+    });
+  };
+
+  const renderPaginationControls = (totalPages, currentPageState, isOwnedTab = false) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className='flex justify-center mt-8 space-x-2'>
+        <button
+          onClick={() => paginate(currentPageState > 1 ? currentPageState - 1 : 1, isOwnedTab)}
+          disabled={currentPageState === 1}
+          className='px-4 py-2 rounded-md bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+        >
+          Previous
+        </button>
+
+        <div className='flex space-x-1 overflow-x-auto max-w-xs sm:max-w-none px-1'>
+          {Array.from({ length: totalPages }, (_, i) => {
+            // Show limited page numbers for better mobile experience
+            const pageNum = i + 1;
+
+            // Always show first page, last page, current page, and one page before/after current
+            if (
+              pageNum === 1 ||
+              pageNum === totalPages ||
+              (pageNum >= currentPageState - 1 && pageNum <= currentPageState + 1)
+            ) {
+              return (
+                <button
+                  key={i}
+                  onClick={() => paginate(pageNum, isOwnedTab)}
+                  className={`w-10 h-10 rounded-md ${
+                    pageNum === currentPageState
+                      ? 'bg-primary text-white'
+                      : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            } else if (
+              (pageNum === 2 && currentPageState > 3) ||
+              (pageNum === totalPages - 1 && currentPageState < totalPages - 2)
+            ) {
+              // Show ellipsis for skipped pages
+              return (
+                <span key={i} className='flex items-center justify-center w-10 h-10'>
+                  ...
+                </span>
+              );
+            }
+            return null;
+          })}
+        </div>
+
+        <button
+          onClick={() =>
+            paginate(currentPageState < totalPages ? currentPageState + 1 : totalPages, isOwnedTab)
+          }
+          disabled={currentPageState === totalPages}
+          className='px-4 py-2 rounded-md bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+        >
+          Next
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -110,8 +216,11 @@ function App() {
         {activeTab === 'marketplace' ? (
           <div>
             {loading ? (
-              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
-                {[...Array(4)].map((_, index) => (
+              <div
+                id='nft-grid'
+                className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+              >
+                {[...Array(Math.min(ITEMS_PER_PAGE, 4))].map((_, index) => (
                   <div
                     key={`skeleton-${index}`}
                     className='animate-pulse rounded-xl overflow-hidden bg-white shadow-md'
@@ -128,18 +237,33 @@ function App() {
                 ))}
               </div>
             ) : (
-              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
-                {tokenMetaDataArray.map((token, i) => (
-                  <NFTCard
-                    key={`marketplace-${i}`}
-                    metadata={token}
-                    mintPrice={mintPrice}
-                    tokenId={i}
-                    nextTokenId={nextTokenId}
-                    mintNFT={mintTokenHook}
-                  />
-                ))}
-              </div>
+              <>
+                <div
+                  id='nft-grid'
+                  className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+                >
+                  {currentMarketplaceItems.map((token, i) => (
+                    <NFTCard
+                      key={`marketplace-${indexOfFirstMarketplaceItem + i}`}
+                      metadata={token}
+                      mintPrice={mintPrice}
+                      tokenId={indexOfFirstMarketplaceItem + i}
+                      nextTokenId={nextTokenId}
+                      mintNFT={mintTokenHook}
+                    />
+                  ))}
+                </div>
+
+                {/* Marketplace Pagination */}
+                {renderPaginationControls(totalMarketplacePages, currentPage, false)}
+
+                {/* Show "No results" when there are no NFTs */}
+                {tokenMetaDataArray.length === 0 && (
+                  <div className='text-center py-10 bg-white rounded-lg mt-6'>
+                    <p className='text-gray-500'>No NFTs available in the marketplace.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -238,8 +362,11 @@ function App() {
                 <p className='text-gray-500'>Please connect your wallet to view your NFTs.</p>
               </div>
             ) : loading ? (
-              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
-                {[...Array(2)].map((_, index) => (
+              <div
+                id='nft-grid'
+                className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+              >
+                {[...Array(Math.min(ITEMS_PER_PAGE, 2))].map((_, index) => (
                   <div
                     key={`owned-skeleton-${index}`}
                     className='animate-pulse rounded-xl overflow-hidden bg-white shadow-md'
@@ -259,28 +386,36 @@ function App() {
                 <p className='text-gray-500'>You don't own any NFTs yet.</p>
               </div>
             ) : (
-              <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'>
-                {ownedTokens.map((id) => {
-                  const token = tokenMetaData.get(Number(id));
-                  return token ? (
-                    <NFTCard
-                      key={`owned-${id}`}
-                      metadata={token}
-                      mintPrice={mintPrice}
-                      tokenId={Number(id)}
-                      nextTokenId={nextTokenId}
-                      owned={true}
-                    />
-                  ) : (
-                    <div
-                      key={`loading-${id}`}
-                      className='w-full h-64 bg-gray-100 rounded-xl animate-pulse flex items-center justify-center'
-                    >
-                      <p className='text-gray-400'>Loading Token #{id}...</p>
-                    </div>
-                  );
-                })}
-              </div>
+              <>
+                <div
+                  id='nft-grid'
+                  className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6'
+                >
+                  {currentOwnedTokens.map((id) => {
+                    const token = tokenMetaData.get(Number(id));
+                    return token ? (
+                      <NFTCard
+                        key={`owned-${id}`}
+                        metadata={token}
+                        mintPrice={mintPrice}
+                        tokenId={Number(id)}
+                        nextTokenId={nextTokenId}
+                        owned={true}
+                      />
+                    ) : (
+                      <div
+                        key={`loading-${id}`}
+                        className='w-full h-64 bg-gray-100 rounded-xl animate-pulse flex items-center justify-center'
+                      >
+                        <p className='text-gray-400'>Loading Token #{id}...</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Owned NFTs Pagination */}
+                {renderPaginationControls(totalOwnedPages, ownedCurrentPage, true)}
+              </>
             )}
           </div>
         )}
